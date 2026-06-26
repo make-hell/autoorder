@@ -1,4 +1,5 @@
 import os
+from groq import Groq
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,6 +24,7 @@ app.add_middleware(
 
 # Initialize OpenAI Client
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # async def get_weather(lat: float, lon: float) -> str:
 #     """Fetches the current weather condition to feed into the AI mood generator."""
@@ -137,18 +139,28 @@ async def decide_food(payload: DeciderRequest):
 
     # 3. Call OpenAI using structured output format to enforce our schema
     try:
-        completion = openai_client.beta.chat.completions.parse(
-            model="gpt-4o-mini",  # Highly cost-effective and perfectly supports structured output parsing
+        completion = groq_client.chat.completions.create(
+            model="llama-3.1-70b-versatile",  # High-performance, smart reasoning model
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content}
             ],
-            response_format=DeciderResponse,
+            response_format={"type": "json_object"}  # Forces a clean JSON mapping response
         )
         
+        return completion.choices[0].message.content
+        # completion = openai_client.beta.chat.completions.parse(
+        #     model="gpt-4o-mini",  # Highly cost-effective and perfectly supports structured output parsing
+        #     messages=[
+        #         {"role": "system", "content": system_prompt},
+        #         {"role": "user", "content": user_content}
+        #     ],
+        #     response_format=DeciderResponse,
+        # )
+        
         # The parsed object natively adheres completely to our DeciderResponse Pydantic Model
-        ai_decision = completion.choices[0].message.parsed
-        return ai_decision
+        # ai_decision = completion.choices[0].message.parsed
+        # return ai_decision
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI Decision Engine failed: {str(e)}")
